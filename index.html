@@ -8,19 +8,21 @@
   </head>
   <body>
     <div class="app">
-      <header class="header"><div><p class="eyebrow"></p><h1>SPACE <span>ARENA</span></div><span class="status">● LOCAL / OFFLINE</span></header>
+      <header class="header"><div><p class="eyebrow"></p><h1>SPACE <span>ARENA</span></h1></div><span class="status">● LOCAL / OFFLINE</span></header>
       <main>
         <section class="game-panel">
-          <div class="canvas-head"><span>АРЕНА / СИМУЛЯЦІЯ 60 ГЦ</span><span id="mode-label">NORMAL · rAF + FIXED STEP</span></div>
+          <div class="canvas-head"><span>АРЕНА / СИМУЛЯЦІЯ 60 ГЦ</span><span>rAF + FIXED STEP</span></div>
           <canvas id="game" aria-label="Ігрова арена космічного корабля" tabindex="0"></canvas>
-          <div class="hud"><div><span>STEPS / S</span><strong id="steps">0</strong></div><div><span>FRAMES / S</span><strong id="fps">0</strong></div><div><span>FRAME TIME</span><strong><span id="frame-ms">0.0</span><small> ms</small></strong></div><div><span>SPEED</span><strong id="speed">0</strong></div></div>
+          <div class="hud"><div><span>STEPS / S</span><strong id="steps">0</strong></div><div><span>FRAMES / S</span><strong id="fps">0</strong></div><div><span>FRAME TIME</span><strong><span id="frame-ms">0.0</span><small> ms</small></strong></div><div><span>ЗДОРОВ’Я</span><strong id="hp">100</strong></div></div>
+          <div class="combat-hud"><span>РАХУНОК <b id="score">0</b></span><span>ЗАГИБЕЛІ <b id="deaths">0</b></span><span>ШВИДКІСТЬ <b id="speed">0</b></span><span>СУТНОСТІ <b id="entities">0</b></span></div><p id="respawn" class="respawn" aria-live="polite"></p>
         </section>
         <aside class="sidebar">
-          <section class="panel"><p class="eyebrow">01 - CONTROL</p><h2>Керування</h2><div class="control-row"><kbd>W</kbd><kbd>↑</kbd><span>Рух вперед</span></div><div class="control-row"><kbd>A</kbd><kbd>←</kbd><span>Поворот ліворуч</span></div><div class="control-row"><kbd>D</kbd><kbd>→</kbd><span>Поворот праворуч</span></div><div class="control-row"><kbd>SPACE</kbd><span>Гальмування</span></div><button id="reset" class="secondary">↺ Повернути корабель у центр</button></section>
-          <section class="panel"><p class="eyebrow">02 - EXPERIMENTS</p><h2>Зламай цикл</h2><label for="experiment">Режим роботи</label><select id="experiment"><option value="normal">Нормальний — rAF, fixed dt</option><option value="block">Блокування main thread (35 ms)</option><option value="interval">setInterval замість rAF</option><option value="variable">Змінний dt замість fixed</option></select><p id="experiment-help" class="help">Еталонний режим: фізика з фіксованим dt, малювання з інтерполяцією.</p><button id="measure" class="primary">Виміряти за 10 секунд</button><p id="measure-status" class="hint" aria-live="polite">Для чистого порівняння не перемикай вкладки під час вимірювання.</p><pre id="measure-output" class="result" aria-live="polite"></pre></section>
-          <section class="panel info"><p class="eyebrow">03 - TIP</p><p>Краї арени з'єднані: вилітаючи справа, корабель з'являється зліва.</p></section>
+          <section class="panel"><p class="eyebrow">01 - CONTROL</p><h2>Керування</h2><div class="control-row"><kbd>W</kbd><kbd>↑</kbd><span>Рух вперед</span></div><div class="control-row"><kbd>A</kbd><kbd>←</kbd><span>Поворот ліворуч</span></div><div class="control-row"><kbd>D</kbd><kbd>→</kbd><span>Поворот праворуч</span></div><div class="control-row"><kbd>SPACE</kbd><span>Гальмування</span></div><div class="control-row"><kbd>F</kbd><span>Стріляти (утримувати)</span></div><div class="control-row"><kbd>H</kbd><span>Homing-кулі</span></div><button id="reset" class="secondary">↺ Повернути корабель у центр</button></section>
+          
+          <section class="panel info"><p class="eyebrow">02 - OBJECTS</p><p>Рожевий астероїд переслідує корабель; рожеві кулі шукають астероїди. Зелені «+» відновлюють 30 HP. За астероїд +10 балів, за pickup +5. Респаун через 2 с.</p></section>
         </aside>
       </main>
+      
     </div>
     <script type="module" src="/src/main.js"></script>
   </body>

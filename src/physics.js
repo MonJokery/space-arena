@@ -8,8 +8,6 @@ const MAX_SPEED = 380;
 export function makeShip(width, height) {
   return { x: width / 2, y: height / 2, vx: 0, vy: 0, angle: -Math.PI / 2 };
 }
-
-// Чиста функція: не змінює вхідний ship і не використовує DOM або Canvas.
 export function integrate(ship, input, dt) {
   const angle = ship.angle + (Number(input.right) - Number(input.left)) * ROTATE_SPEED * dt;
   const thrust = input.thrust ? ACCELERATION : 0;
@@ -26,8 +24,6 @@ export function integrate(ship, input, dt) {
 export function wrapShip(ship, width, height) {
   return { ...ship, x: ((ship.x % width) + width) % width, y: ((ship.y % height) + height) % height };
 }
-
-// Інтерполяція враховує перехід між краями (щоб не було польоту через всю арену).
 export function interpolateShip(previous, current, alpha, width, height) {
   let dx = current.x - previous.x;
   let dy = current.y - previous.y;

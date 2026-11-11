@@ -1,20 +1,19 @@
-// Замикання: стан клавіш приватний, назовні повертаємо лише методи.
 export function createInput(target = window) {
   const pressed = new Set();
-  const controlKeys = new Set(['ArrowUp', 'ArrowLeft', 'ArrowRight', 'Space']);
-
+  const handlers = new Map();
+  const controlKeys = new Set(['ArrowUp', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyF', 'KeyH']);
   function onKeyDown(event) {
     if (controlKeys.has(event.code)) event.preventDefault();
+    if (!pressed.has(event.code)) handlers.get(event.code)?.();
     pressed.add(event.code);
   }
   function onKeyUp(event) { pressed.delete(event.code); }
   function clear() { pressed.clear(); }
-
   target.addEventListener('keydown', onKeyDown);
   target.addEventListener('keyup', onKeyUp);
   target.addEventListener('blur', clear);
-
   return {
+    on(code, callback) { handlers.set(code, callback); },
     read() {
       return {
         thrust: pressed.has('KeyW') || pressed.has('ArrowUp'),
@@ -23,6 +22,7 @@ export function createInput(target = window) {
         brake: pressed.has('Space'),
       };
     },
+    isPressed(code) { return pressed.has(code); },
     destroy() {
       target.removeEventListener('keydown', onKeyDown);
       target.removeEventListener('keyup', onKeyUp);
