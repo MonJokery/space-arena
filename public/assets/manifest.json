@@ -1,0 +1,13 @@
+{
+  "images": [
+    { "id": "ship", "url": "/assets/ship-sheet.png" },
+    { "id": "bullet", "url": "/assets/bullet-sheet.png" },
+    { "id": "asteroid", "url": "/assets/asteroid-sheet.png" }
+  ],
+  "audio": [
+    { "id": "fired", "url": "/assets/fired.wav" },
+    { "id": "hit", "url": "/assets/hit.wav" },
+    { "id": "exploded", "url": "/assets/exploded.wav" }
+  ],
+  "json": [{ "id": "rooms", "url": "/api/rooms" }]
+}

@@ -1,6 +1,6 @@
 import { interpolateShip } from './physics.js';
 
-export function createRenderer(canvas) {
+export function createRenderer(canvas, sprites = {}) {
   const ctx = canvas.getContext('2d');
   let width = 960;
   let height = 600;
@@ -45,6 +45,16 @@ export function createRenderer(canvas) {
     if (entity.homing) { ctx.fillStyle = '#ffb2dc'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill(); }
   }
   function entityShape(entity) {
+    const sprite = sprites[entity.kind];
+    if (sprite && ['ship', 'bullet', 'asteroid'].includes(entity.kind)) {
+      if (entity.kind === 'ship') ctx.rotate(entity.angle + Math.PI / 2);
+      if (entity.kind === 'asteroid') ctx.rotate(entity.angle);
+      if (entity.kind === 'bullet') ctx.rotate(Math.atan2(entity.velocity.y, entity.velocity.x) + Math.PI / 2);
+      const frame = entity.kind === 'ship' ? (entity.thrusting ? 2 : 0) : Math.floor(performance.now() / 160) % 4;
+      const size = entity.kind === 'bullet' ? entity.radius * 4 : entity.radius * 2.8;
+      ctx.drawImage(sprite, frame * 64, 0, 64, 64, -size / 2, -size / 2, size, size);
+      return;
+    }
     if (entity.kind === 'ship') shipShape(entity);
     if (entity.kind === 'asteroid') asteroidShape(entity);
     if (entity.kind === 'bullet') {

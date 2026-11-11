@@ -1,3 +1,4 @@
+import { emitGameEvent } from './events.js';
 import { Vector2 } from './vector2.js';
 import { processCollisions } from './collisions.js';
 import { Particle } from './entities/particle.js';
@@ -53,6 +54,7 @@ export class World {
     if (!ship.dead) ship.dead = true;
     if (this.respawns.some((item) => item.id === ship.id)) return;
     this.explode(ship.position, '#6deaff', 30);
+    emitGameEvent('exploded', { kind: 'ship' });
     this.deaths++;
     this.respawns.push({ id: ship.id, time: 2 });
   }

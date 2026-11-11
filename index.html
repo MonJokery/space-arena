@@ -9,7 +9,21 @@
   <body>
     <div class="app">
       <header class="header"><div><p class="eyebrow"></p><h1>SPACE <span>ARENA</span></h1></div><span class="status">● LOCAL / OFFLINE</span></header>
-      <main>
+      <section id="loading-screen" class="screen-card">
+        <p class="eyebrow">01 / ASYNC LOADING</p><h2>Завантаження ресурсів</h2>
+        <p>Спрайти, звуки й список кімнат завантажуються без блокування основного потоку.</p>
+        <canvas id="loading-canvas" width="560" height="110" aria-label="Прогрес завантаження"></canvas><progress id="loading-bar" max="1" value="0"></progress><p id="loading-count">0/0</p>
+        <p id="loading-status" role="status">Початок завантаження...</p>
+        <label for="failure-mode">Тест помилки</label><select id="failure-mode"><option value="none">Без помилки</option><option value="404">404 спрайта</option><option value="timeout">Таймаут</option><option value="json">Битий JSON</option><option value="slow">Повільне завантаження (для Abort)</option></select>
+        <div class="buttons"><button id="start-load" class="primary">Завантажити ресурси</button><button id="cancel-load" class="secondary" hidden>Abort завантаження</button><button id="retry-load" class="primary" hidden>Retry</button></div>
+      </section>
+      <section id="lobby-screen" class="screen-card" hidden>
+        <p class="eyebrow">02 / LOBBY</p><h2>Оберіть кімнату</h2>
+        <form id="join-form"><label for="player-name">Ім’я гравця</label><input id="player-name" required maxlength="24" value="Пілот" />
+        <label for="room-list">Кімната</label><select id="room-list" required></select><button id="join" type="submit" class="primary" disabled>Join — почати гру</button></form>
+        <button id="refresh-rooms" class="secondary">Оновити список</button><p id="lobby-status" role="status">Пошук кімнат...</p>
+      </section>
+      <div id="game-screen" hidden><p class="session-line" id="player-label"></p><p id="audio-status" class="hint"></p><main>
         <section class="game-panel">
           <div class="canvas-head"><span>АРЕНА / СИМУЛЯЦІЯ 60 ГЦ</span><span>rAF + FIXED STEP</span></div>
           <canvas id="game" aria-label="Ігрова арена космічного корабля" tabindex="0"></canvas>
@@ -21,7 +35,7 @@
           
           <section class="panel info"><p class="eyebrow">02 - OBJECTS</p><p>Рожевий астероїд переслідує корабель; рожеві кулі шукають астероїди. Зелені «+» відновлюють 30 HP. За астероїд +10 балів, за pickup +5. Респаун через 2 с.</p></section>
         </aside>
-      </main>
+      </main></div>
       
     </div>
     <script type="module" src="/src/main.js"></script>

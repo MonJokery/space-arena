@@ -2,6 +2,7 @@ import { Entity } from './entity.js';
 import { Bullet } from './bullet.js';
 import { Vector2 } from '../vector2.js';
 import { integrate } from '../physics.js';
+import { emitGameEvent } from '../events.js';
 
 export class Ship extends Entity {
   #hp = 100;
@@ -31,6 +32,7 @@ export class Ship extends Entity {
     const velocity = this.velocity.add(direction.scale(homing ? 260 : 440));
     const bullet = new Bullet({ position, velocity, ownerId: this.id, homing });
     world.spawn(bullet);
+    emitGameEvent('fired', { ownerId: this.id });
     this.cooldown = homing ? 0.48 : 0.17;
     return bullet;
   }

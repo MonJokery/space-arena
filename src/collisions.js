@@ -1,4 +1,5 @@
 import { Vector2 } from './vector2.js';
+import { emitGameEvent } from './events.js';
 export function circlesIntersect(a, b, world) {
   const delta = world.delta(a.position, b.position);
   return delta.x * delta.x + delta.y * delta.y <= (a.radius + b.radius) ** 2;
@@ -30,10 +31,12 @@ function handleCollision(a, b, world) {
       target.takeDamage(bullet.damage);
       if (target.dead) {
         world.explode(target.position, '#ffc178', 20);
+        emitGameEvent('exploded', { kind: 'asteroid' });
         world.award(bullet.ownerId, 10);
       }
     }
     bullet.dead = true;
+    emitGameEvent('hit', { target: target.kind });
     world.explode(bullet.position, '#ffe4a5', 6);
     return;
   }
