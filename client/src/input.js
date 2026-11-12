@@ -3,6 +3,7 @@ export function createInput(target = window) {
   const handlers = new Map();
   const controlKeys = new Set(['ArrowUp', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyF', 'KeyH']);
   function onKeyDown(event) {
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target?.tagName)) return;
     if (controlKeys.has(event.code)) event.preventDefault();
     if (!pressed.has(event.code)) handlers.get(event.code)?.();
     pressed.add(event.code);

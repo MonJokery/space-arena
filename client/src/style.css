@@ -4,3 +4,5 @@
 [hidden]{display:none!important}.screen-card{max-width:600px;margin:26px auto;padding:35px;background:#10182b;border:1px solid #27344b;border-radius:13px;min-height:310px}.screen-card h2{font-size:26px}.screen-card p{color:#a4b4ce;line-height:1.6}progress{width:100%;height:28px;accent-color:#69d6f5}.screen-card input{width:100%;background:#1a2741;border:1px solid #415574;color:#e0efff;border-radius:7px;padding:13px;margin-bottom:16px}.screen-card select{margin-bottom:15px}.buttons{display:flex;gap:12px}.session-line{color:#7bffbf;font-size:13px}#game-screen main{margin-top:12px}
 
 #loading-canvas{width:100%;height:auto;min-height:0;max-height:110px;border-radius:7px;margin:8px 0}#loading-bar{height:12px}.buttons button{margin-top:4px}
+
+.chat-messages{height:175px;overflow:auto;background:#091123;border:1px solid #293a57;border-radius:7px;padding:8px;margin:11px 0;overflow-wrap:anywhere}.chat-messages p{font-size:12px;color:#d1e4f6;margin:5px 0}.chat-panel input{width:100%;background:#1a2741;border:1px solid #415574;border-radius:7px;padding:11px;color:#fff}.chat-panel .hint{font-size:11px;margin:4px 0}

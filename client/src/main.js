@@ -10,10 +10,12 @@ import { World } from './world.js';
 import { Vector2 } from './vector2.js';
 import { Asteroid } from './entities/asteroid.js';
 import { Pickup } from './entities/pickup.js';
+import { createChat } from './net/chat.js';
 
 const $ = (selector) => document.querySelector(selector);
 const canvas = $('#game');
 let renderer, input, world, loop, lobby, sound, assets, roomConfig;
+const chat = createChat(document);
 function showScreen(name) {
   for (const id of ['loading-screen', 'lobby-screen', 'game-screen']) {
     $(`#${id}`).hidden = id !== `${name}-screen`;
@@ -96,6 +98,7 @@ function showLobby() {
 }
 async function startGame({ name, room }) {
   roomConfig = room;
+  chat.join(name, room.id);
   try {
     sound = createSoundSystem(assets.audio);
     await sound.unlock(); // Join — жест гравця
@@ -107,6 +110,7 @@ async function startGame({ name, room }) {
   input = createInput();
   input.on('KeyF', () => { world?.player?.fire(world, false); });
   input.on('KeyH', () => { world?.player?.fire(world, true); });
+  window.removeEventListener('resize', onResize);
   window.addEventListener('resize', onResize);
   reset();
   loop?.stop();
@@ -164,3 +168,4 @@ function onResize() {
   for (const entity of world) { entity.position = world.wrap(entity.position); entity.previousPosition = entity.position; }
 }
 $('#reset').addEventListener('click', () => { if (world) reset(); });
+$('#leave-room').addEventListener('click', () => { loop?.stop(); input?.destroy(); window.removeEventListener('resize', onResize); chat.leave(); lobby?.hide(); showLobby(); });
