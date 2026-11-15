@@ -38,7 +38,7 @@
           <div class="control-row">Отримано: <b id="net-bps">0</b> B/s</div>
           <div class="control-row">Input queue: <b id="net-queue">0</b></div>
           <div class="control-row">Поправка: <b id="net-error">0</b> px</div>
-          <label>Режим</label><select id="predict"><option value="off">Без prediction</option><option value="on" selected>Prediction + replay</option><option value="broken">Додати Math.random() (експеримент)</option></select>
+          <label>Режим</label><select id="predict"><option value="off">Без prediction</option><option value="on" selected>Prediction + replay</option></select>
           <label>Пакети</label><select id="protocol"><option value="binary" selected>DataView binary</option><option value="json">JSON</option></select>
           <label>Затримка, мс</label><input id="latency" type="number" min="0" max="300" value="100" />
           <label>Jitter, мс</label><input id="jitter" type="number" min="0" max="150" value="20" />
@@ -50,6 +50,6 @@
       </main></div>
       
     </div>
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

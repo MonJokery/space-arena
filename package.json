@@ -1,19 +1,27 @@
 {
-  "name": "space-arena-lab-05",
+  "name": "space-arena-lab-06",
   "private": true,
-  "version": "5.0.0",
+  "version": "6.0.0",
   "type": "module",
   "workspaces": [
     "client",
-    "server"
+    "server",
+    "shared"
   ],
   "scripts": {
     "dev": "node scripts/dev.js",
-    "build": "npm run build --workspace client",
+    "build": "npm run typecheck && npm run build --workspace client",
     "start": "npm run start --workspace server",
-    "test": "node --test server/test/network.test.js",
+    "test": "node --import tsx --test server/test/validation.test.js shared/simulation.test.ts",
     "lint": "npm run lint --workspace client",
     "format": "npm run format --workspace client",
-    "measure:protocol": "node scripts/measure-protocol.js"
+    "measure:protocol": "node --import tsx scripts/measure-protocol.js",
+    "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "tsx": "^4.20.6",
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.1"
   }
 }

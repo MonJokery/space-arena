@@ -1,5 +1,5 @@
-import { createArena, addShip, snapshot } from '../shared/simulation.js';
-import { encodeInput, encodeSnapshot } from '../shared/protocol.js';
+import { createArena, addShip, snapshot } from '../shared/simulation.ts';
+import { encodeInput, encodeSnapshot } from '../shared/protocol.ts';
 const arena = createArena({ width: 960, height: 600, asteroids: 5 }, 12345);
 addShip(arena, 1); addShip(arena, 2);
 const state = snapshot(arena, new Map([[1, 43], [2, 46]]));
