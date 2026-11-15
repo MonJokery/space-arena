@@ -29,5 +29,6 @@ export function createChat(root) {
   return {
     join(name, roomId) { messages.replaceChildren(); players.textContent = 'Гравці: —'; socket.connect(name, roomId); },
     leave() { socket.disconnect(); },
+    socket,
   };
 }

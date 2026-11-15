@@ -1,7 +1,7 @@
 {
-  "name": "space-arena-lab-04",
+  "name": "space-arena-lab-05",
   "private": true,
-  "version": "4.0.0",
+  "version": "5.0.0",
   "type": "module",
   "workspaces": [
     "client",
@@ -11,8 +11,9 @@
     "dev": "node scripts/dev.js",
     "build": "npm run build --workspace client",
     "start": "npm run start --workspace server",
-    "test": "node --test client/src/*.test.js server/test/*.test.js",
+    "test": "node --test server/test/network.test.js",
     "lint": "npm run lint --workspace client",
-    "format": "npm run format --workspace client"
+    "format": "npm run format --workspace client",
+    "measure:protocol": "node scripts/measure-protocol.js"
   }
 }

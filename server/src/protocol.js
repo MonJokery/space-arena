@@ -10,6 +10,14 @@ export function parseMessage(data) {
     if (Object.keys(message).sort().join(',') !== 'name,roomId,type' || typeof message.name !== 'string' || typeof message.roomId !== 'string' || message.name.trim().length < 1 || message.name.length > 24 || !/^[a-z0-9-]{1,24}$/.test(message.roomId)) throw new Error('Invalid join');
     return { type: 'join', name: message.name.trim(), roomId: message.roomId };
   }
+  if (message.type === 'input') {
+    if (Object.keys(message).sort().join(',') !== 'brake,fire,homing,left,right,seq,thrust,type' || !Number.isSafeInteger(message.seq) || message.seq < 1 || message.seq > 4294967295 || !['thrust','left','right','brake','fire','homing'].every((k) => typeof message[k] === 'boolean')) throw new Error('Invalid input');
+    return message;
+  }
+  if (message.type === 'pingTime') {
+    if (Object.keys(message).sort().join(',') !== 'timestamp,type' || typeof message.timestamp !== 'number' || !Number.isFinite(message.timestamp)) throw new Error('Invalid ping');
+    return message;
+  }
   if (message.type === 'chat') {
     if (Object.keys(message).sort().join(',') !== 'text,type' || typeof message.text !== 'string' || !message.text.trim() || message.text.length > 500) throw new Error('Invalid chat');
     return { type: 'chat', text: message.text.trim() };
