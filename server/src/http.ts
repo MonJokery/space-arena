@@ -4,21 +4,26 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { extname, resolve, relative, isAbsolute } from 'node:path';
 import { pipeline } from 'node:stream/promises';
-import { tickMetrics } from './performance.ts';
+import { tickMetrics, trafficMetrics } from './performance.ts';
 import { RoomConfigSchema } from './protocol.ts';
 import type { RoomStore } from './room.ts';
 import type { Config } from './config.ts';
 import type { Logger } from './logger.ts';
 
-const MIME: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.wav': 'audio/wav', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
-export function createHttpServer(config: Config, rooms: RoomStore, logger: Logger): Server {
+const MIME: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.wav': 'audio/wav', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon' };
+export function createHttpServer(config: Config, rooms: RoomStore, logger: Logger, isReady: () => boolean = () => true, connections: () => number = () => 0): Server {
   return createServer(async (request, response) => {
     const json = (status: number, data: unknown): void => { response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(data)); };
     try {
       const rawPath = (request.url ?? '/').split('?')[0] ?? '/';
       if (/(^|\/)\.\.(\/|$)/.test(rawPath) || /%2e/i.test(rawPath) || /%2f/i.test(rawPath) || /%5c/i.test(rawPath) || rawPath.includes('\\')) { json(403, { error: 'Forbidden path' }); return; }
       const url = new URL(request.url ?? '/', 'http://localhost');
-      if (request.method === 'GET' && url.pathname === '/health') { json(200, { status: 'ok', rss: process.memoryUsage().rss, uptime: process.uptime(), tick: tickMetrics() }); return; }
+      if (request.method === 'GET' && url.pathname === '/health') { json(200, { status: 'ok', gitSha: config.gitSha, uptime: process.uptime() }); return; }
+      if (request.method === 'GET' && url.pathname === '/ready') { json(isReady() ? 200 : 503, { ready: isReady() }); return; }
+      if (request.method === 'GET' && url.pathname === '/metrics') {
+        json(200, { players: [...rooms.active.values()].reduce((n, room) => n + room.members.size, 0), rooms: rooms.active.size,
+          connections: connections(), tick: tickMetrics(), ...trafficMetrics() }); return;
+      }
       if (request.method === 'GET' && url.pathname === '/api/rooms') { json(200, { rooms: rooms.list() }); return; }
       if (request.method === 'POST' && url.pathname === '/api/rooms') {
         let raw = '';
@@ -31,7 +36,7 @@ export function createHttpServer(config: Config, rooms: RoomStore, logger: Logge
         const parsed = RoomConfigSchema.safeParse(body);
         if (!parsed.success) { json(400, { error: 'Invalid room configuration' }); return; }
         const room = rooms.create(parsed.data);
-        if (!room) { json(409, { error: 'Room already exists' }); return; }
+        if (!room) { json(409, { error: 'Room already exists or room limit reached' }); return; }
         json(201, { room: { ...room, players: 0 } }); return;
       }
       if (request.method === 'GET' && url.pathname === '/api/replay') {

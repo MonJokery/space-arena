@@ -8,3 +8,5 @@
 .chat-messages{height:175px;overflow:auto;background:#091123;border:1px solid #293a57;border-radius:7px;padding:8px;margin:11px 0;overflow-wrap:anywhere}.chat-messages p{font-size:12px;color:#d1e4f6;margin:5px 0}.chat-panel input{width:100%;background:#1a2741;border:1px solid #415574;border-radius:7px;padding:11px;color:#fff}.chat-panel .hint{font-size:11px;margin:4px 0}
 
 #latency, #jitter, #loss, #protocol, #predict { width: 100%; box-sizing: border-box; margin: 4px 0 9px; }
+
+.lobby-help{border:1px solid #304c72;border-radius:10px;background:#14203a;padding:15px;margin-top:18px;color:#c6dbf6}.lobby-help p{font-size:13px}.room-create{margin:18px 0;padding:14px;border:1px solid #3c5879;border-radius:10px}.room-create summary{cursor:pointer;color:#67ddf5}.room-create form{margin-top:18px}.game-panel{min-width:0}#game-screen main{grid-template-columns:minmax(0,1fr) 320px}@media(max-width:850px){#game-screen main{grid-template-columns:1fr}}

@@ -1,15 +1,16 @@
 {
   "name": "@space-arena/server",
-  "version": "7.0.0",
+  "version": "8.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "node --import tsx --watch src/index.ts",
-    "start": "node --import tsx src/index.ts",
+    "start": "node dist/index.mjs",
     "test": "vitest run"
   },
   "dependencies": {
     "ws": "^8.18.0",
-    "zod": "^4.1.0"
+    "zod": "^4.1.0",
+    "pino": "^9.6.0"
   }
 }

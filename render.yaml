@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: space-arena
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /ready
+    envVars:
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: MAX_CONNECTIONS_PER_IP
+        value: 12
+      - key: MAX_ROOMS
+        value: 64
+      - key: MAX_PLAYERS_PER_ROOM
+        value: 16

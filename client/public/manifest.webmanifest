@@ -1,0 +1,18 @@
+{
+  "name": "Space Arena",
+  "short_name": "Space Arena",
+  "description": "Браузерна космічна арена",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#070b18",
+  "theme_color": "#080d1f",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

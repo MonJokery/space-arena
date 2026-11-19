@@ -24,6 +24,7 @@ export function integrate<T extends Motion>(ship: T, input: Readonly<Controls>, 
 export function wrap<T extends Vector2>(s: T, width: number, height: number): T {
   return { ...s, x: ((s.x % width) + width) % width, y: ((s.y % height) + height) % height };
 }
+function shortDelta(delta: number, length: number): number { return ((delta + length / 2) % length + length) % length - length / 2; }
 export function distanceSquared(a: Vector2, b: Vector2, width: number, height: number): number {
   let dx = Math.abs(a.x - b.x), dy = Math.abs(a.y - b.y);
   dx = Math.min(dx, width - dx); dy = Math.min(dy, height - dy);
@@ -36,7 +37,7 @@ export function createArena({ width, height, asteroids = 5 }: ArenaConfig, seed 
     const a = 2 * Math.PI * i / Math.max(asteroids, 1);
     const radius = 18 + 7 * (i % 3);
     const id = entityId(1000 + i);
-    entities.set(id, { id, kind: 'asteroid', x: width * (0.5 + 0.34 * Math.cos(a)), y: height * (0.5 + 0.34 * Math.sin(a)), vx: (random() - 0.5) * 36, vy: (random() - 0.5) * 36, angle: random() * Math.PI * 2, radius, hp: Math.ceil(radius / 9), homing: i === 0 });
+    entities.set(id, { id, kind: 'asteroid', x: width * (0.5 + 0.34 * Math.cos(a)), y: height * (0.5 + 0.34 * Math.sin(a)), vx: (random() - 0.5) * 36, vy: (random() - 0.5) * 36, angle: random() * Math.PI * 2, radius, hp: Math.ceil(radius / 9), homing: i % 3 === 0 });
   }
   for (let i = 0; i < 2; i++) {
     const id = entityId(2000 + i);
@@ -51,6 +52,39 @@ export function addShip(arena: Arena, id: EntityId): ShipEntity {
   ship.y = arena.height * (0.38 + (count % 2) * 0.2);
   arena.entities.set(id, ship);
   return ship;
+}
+type AsteroidRespawn = { at: number; radius: number; homing: boolean };
+const asteroidRespawns = new WeakMap<Arena, AsteroidRespawn[]>();
+function scheduleAsteroidRespawn(arena: Arena, asteroid: Extract<Entity, { kind: 'asteroid' }>): void {
+  const queue = asteroidRespawns.get(arena) ?? [];
+  queue.push({ at: arena.tick + TICK_RATE * 3, radius: asteroid.radius, homing: asteroid.homing });
+  asteroidRespawns.set(arena, queue);
+}
+function respawnAsteroids(arena: Arena): void {
+  const queue = asteroidRespawns.get(arena);
+  if (!queue?.length) return;
+  for (let i = queue.length - 1; i >= 0; i--) {
+    const entry = queue[i]!;
+    if (entry.at > arena.tick) continue;
+    queue.splice(i, 1);
+    const random = rng((arena.seed ^ Math.imul(arena.tick, 2654435761) ^ arena.nextId) >>> 0);
+    let x = arena.width * random(), y = arena.height * random();
+    let best = -1;
+    for (let attempt = 0; attempt < 16; attempt++) {
+      const tx = arena.width * random(), ty = arena.height * random();
+      let distance = Infinity;
+      for (const entity of arena.entities.values()) {
+        if (entity.kind !== 'ship' || entity.hp <= 0) continue;
+        distance = Math.min(distance, distanceSquared({ x: tx, y: ty }, entity, arena.width, arena.height));
+      }
+      if (distance > best) { best = distance; x = tx; y = ty; }
+    }
+    const id = entityId(arena.nextId++);
+    const angle = random() * Math.PI * 2;
+    arena.entities.set(id, { id, kind: 'asteroid', x, y, vx: Math.cos(angle) * 24,
+      vy: Math.sin(angle) * 24, angle, radius: entry.radius,
+      hp: Math.ceil(entry.radius / 9), homing: entry.homing });
+  }
 }
 const bulletPools = new WeakMap<Arena, BulletEntity[]>();
 export function getBulletPoolSize(arena: Arena): number { return bulletPools.get(arena)?.length ?? 0; }
@@ -103,9 +137,15 @@ export function advanceArena(arena: Arena, inputs: ReadonlyMap<EntityId, Control
         entity.ttl -= DT;
         if (entity.ttl <= 0) { releaseBullet(arena, entity); break; }
         if (entity.homing) {
-          const target = [...arena.entities.values()].find((other) => other.kind === 'asteroid');
+          let target: Entity | null = null;
+          let nearest = Infinity;
+          for (const other of arena.entities.values()) {
+            if (other.kind !== 'asteroid') continue;
+            const dist = distanceSquared(entity, other, width, height);
+            if (dist < nearest) { nearest = dist; target = other; }
+          }
           if (target) {
-            const a = Math.atan2(target.y - entity.y, target.x - entity.x);
+            const a = Math.atan2(shortDelta(target.y - entity.y, height), shortDelta(target.x - entity.x, width));
             entity.vx = entity.vx * 0.95 + Math.cos(a) * 510 * 0.05;
             entity.vy = entity.vy * 0.95 + Math.sin(a) * 510 * 0.05;
           }
@@ -115,9 +155,15 @@ export function advanceArena(arena: Arena, inputs: ReadonlyMap<EntityId, Control
       }
       case 'asteroid': {
         if (entity.homing) {
-          const ship = [...arena.entities.values()].find((other) => other.kind === 'ship' && other.hp > 0);
+          let ship: Entity | null = null;
+          let nearest = Infinity;
+          for (const other of arena.entities.values()) {
+            if (other.kind !== 'ship' || other.hp <= 0) continue;
+            const dist = distanceSquared(entity, other, width, height);
+            if (dist < nearest) { nearest = dist; ship = other; }
+          }
           if (ship) {
-            const a = Math.atan2(ship.y - entity.y, ship.x - entity.x);
+            const a = Math.atan2(shortDelta(ship.y - entity.y, height), shortDelta(ship.x - entity.x, width));
             entity.vx = entity.vx * 0.99 + Math.cos(a) * 30 * 0.01;
             entity.vy = entity.vy * 0.99 + Math.sin(a) * 30 * 0.01;
           }
@@ -142,7 +188,7 @@ export function advanceArena(arena: Arena, inputs: ReadonlyMap<EntityId, Control
       events.push({ type: 'hit', id: victim.id });
       if (victim.hp <= 0) {
         if (victim.kind === 'ship') { victim.hp = 0; victim.respawn = 2; victim.deaths++; }
-        else arena.entities.delete(victim.id);
+        else { scheduleAsteroidRespawn(arena, victim); arena.entities.delete(victim.id); }
         const owner = arena.entities.get(bullet.owner);
         if (owner?.kind === 'ship') owner.score += victim.kind === 'ship' ? 50 : 10;
         events.push({ type: 'exploded', id: victim.id });
@@ -164,6 +210,7 @@ export function advanceArena(arena: Arena, inputs: ReadonlyMap<EntityId, Control
       }
     }
   }
+  respawnAsteroids(arena);
   return events;
 }
 function snapshotEntity(entity: Entity): SnapshotEntity {

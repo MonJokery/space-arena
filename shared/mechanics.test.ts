@@ -81,3 +81,23 @@ test('invalid input sequence is rejected',()=>{
   const v=new DataView(data);v.setUint32(2,0,true);
   expect(()=>decodeInput(data)).toThrow();
 });
+
+
+test('destroyed asteroids respawn after three seconds with their homing property', () => {
+  const arena = createArena({ width: 960, height: 600, asteroids: 1 }, 12);
+  const original = [...arena.entities.values()].find((e) => e.kind === 'asteroid')!;
+  const shooter = addShip(arena, entityId(1));
+  shooter.x = 100; shooter.y = 100;
+  const bullet = { id: entityId(3100), kind: 'bullet' as const, owner: shooter.id,
+    x: original.x, y: original.y, vx: 0, vy: 0, angle: 0, radius: 5, ttl: 1,
+    hp: 1, homing: false };
+  original.hp = 1;
+  arena.entities.set(bullet.id, bullet);
+  advanceArena(arena);
+  expect([...arena.entities.values()].filter(e => e.kind === 'asteroid')).toHaveLength(0);
+  for (let i = 0; i < 90; i++) advanceArena(arena);
+  const respawned = [...arena.entities.values()].filter(e => e.kind === 'asteroid');
+  expect(respawned).toHaveLength(1);
+  expect(respawned[0]!.kind === 'asteroid' && respawned[0]!.homing).toBe(true);
+  expect(respawned[0]!.hp).toBeGreaterThan(0);
+});

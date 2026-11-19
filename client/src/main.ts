@@ -1,4 +1,5 @@
 import './style.css';
+if ('serviceWorker' in navigator) window.addEventListener('load', () => { void navigator.serviceWorker.register('/sw.js'); });
 import { loadAll } from './async/assets.ts';
 import type { Assets, LoadProgress } from './async/assets.ts';
 import { createSoundSystem } from './audio.ts';
@@ -17,8 +18,8 @@ import type { ServerMessage } from '../../shared/network.ts';
 import { emitGameEvent } from './events.ts';
 import { reconcile } from './net/reconciliation.ts';
 import { createChat } from './net/chat.ts';
-import { compareWorker, computeFrameP99 } from './profile/worker-experiment.ts';
-import { frameProfiler } from './profile/frame-profiler.ts';
+
+
 
 const $ = <T extends HTMLElement = HTMLInputElement>(selector: string): T => {
   const element = document.querySelector<T>(selector);
@@ -88,16 +89,17 @@ $('#retry-load').addEventListener('click', () => { void boot(); });
 $('#start-load').addEventListener('click', () => { void boot(); });
 function showLobby() {
   showScreen('lobby');
-  lobby?.hide();
-  lobby = new Lobby();
-  connectLobbyView(lobby, $('#lobby-screen'));
-  lobby.addEventListener('join', (event) => {
+  if (!lobby) {
+    lobby = new Lobby();
+    connectLobbyView(lobby, $('#lobby-screen'));
+    lobby.addEventListener('join', (event) => {
     if (!(event instanceof CustomEvent)) return;
     const value: unknown = event.detail;
     if (typeof value !== 'object' || value === null || !('room' in value) || !('name' in value)) return;
     const room = RoomSchema.safeParse(value.room);
     if (room.success && typeof value.name === 'string') void startGame({ name: value.name, room: room.data });
-  });
+    });
+  }
   lobby.show();
 }
 let playerId: EntityId | null = null;
@@ -130,6 +132,22 @@ function receiveSnapshot(state: Snapshot): void {
   lastSnapshotTime = performance.now();
   frames.push(state);
   if (frames.length > 16) frames.shift();
+  const confirmedBullets = state.entities.filter((entity) => entity.kind === 'bullet' && entity.owner === playerId);
+  const matched = new Set<number>();
+  for (let i = fakeBullets.length - 1; i >= 0; i--) {
+    const fake = fakeBullets[i]!;
+    const elapsed = performance.now() - fake.created;
+    for (const actual of confirmedBullets) {
+      if (matched.has(actual.id)) continue;
+      const dx = shortest(actual.x - fake.x, roomConfig.width);
+      const dy = shortest(actual.y - fake.y, roomConfig.height);
+      const threshold = 55 + Math.min(elapsed, 450) * 0.6;
+      if (dx * dx + dy * dy > threshold * threshold) continue;
+      matched.add(actual.id);
+      fakeBulletPool.push(fakeBullets.splice(i, 1)[0]!);
+      break;
+    }
+  }
   const authoritative = state.entities.find((e) => e.id === playerId && e.kind === 'ship');
   if (!authoritative) return;
   const ack = new Map(state.acks).get(playerId!) ?? 0;
@@ -153,6 +171,7 @@ function receiveSnapshot(state: Snapshot): void {
 function shortest(n: number, size: number): number {
   return ((n + size / 2) % size + size) % size - size / 2;
 }
+socket.addEventListener('disconnected', () => { if (!playerId) return; loop?.stop(); input?.destroy(); chat.leave(); playerId = null; showLobby(); $('#lobby-status').textContent = 'З’єднання втрачено. Можна спробувати зайти знову.'; });
 socket.addEventListener('message', (event) => {
   if (!(event instanceof CustomEvent)) return;
   const message: ServerMessage = event.detail;
@@ -161,6 +180,7 @@ socket.addEventListener('message', (event) => {
     seq = 0; pending = []; predicted = null; lastTick = 0; frames = []; fakeBulletPool.push(...fakeBullets); fakeBullets = []; lastFramePositions.clear();
   }
   if (message.type === 'snapshot') receiveSnapshot(message);
+  if (message.type === 'shutdown') { loop?.stop(); input?.destroy(); chat.leave(); playerId = null; showLobby(); $('#lobby-status').textContent = 'Сервер перезапускається. Повторіть вхід пізніше.'; }
   if (message.type === 'gameEvent' && !(message.eventType === 'fired' && message.id === playerId && $('#predict').value !== 'off')) emitGameEvent(message.eventType);
 });
 async function startGame({ name, room }: { name: string; room: RoomInfo }): Promise<void> {
@@ -180,7 +200,7 @@ async function startGame({ name, room }: { name: string; room: RoomInfo }): Prom
   window.addEventListener('resize', onResize);
   reset();
   loop?.stop();
-  loop = createLoop({ update, render, onStats, onFrame: frameProfiler.frame });
+  loop = createLoop({ update, render, onStats, onFrame: undefined });
   loop.start();
 }
 function reset(): void {
@@ -289,20 +309,15 @@ function render(): void {
     view.entities.set(bullet.id, item); visibleIds.add(bullet.id);
   }
   for (const id of view.entities.keys()) if (!visibleIds.has(id)) { view.entities.delete(id); lastFramePositions.delete(id); }
-  frameProfiler.beginRender();
+
   renderer.draw(view, 1);
-  frameProfiler.endRender();
+
 }
 function onStats(stats: LoopStats): void {
   $('#fps').textContent = String(Math.round(stats.fps));
   $('#steps').textContent = String(30);
   $('#frame-ms').textContent = stats.frameMs.toFixed(1);
   socket.measure();
-  $('#net-rtt').textContent = String(Math.round(socket.rtt));
-  $('#net-age').textContent = String(lastSnapshotTime ? Math.round(performance.now() - lastSnapshotTime) : 0);
-  $('#net-bps').textContent = String(socket.bytesPerSecond);
-  $('#net-queue').textContent = String(pending.length);
-  $('#net-error').textContent = correctionMagnitude.toFixed(2);
 }
 function resizeArena(): void {
   if (!roomConfig) return;
@@ -315,25 +330,3 @@ $('#leave-room').addEventListener('click', () => {
   chat.leave(); playerId = null; lobby?.hide(); showLobby();
 });
 
-$('#profile-30').addEventListener('click', () => {
-  if (frameProfiler.recording) return;
-  frameProfiler.start();
-  $('#profile-status').textContent = 'Запис 30 с…';
-  setTimeout(async () => {
-    const data = frameProfiler.stop();
-    data.p99 = await computeFrameP99(frameProfiler.samples());
-    $('#profile-status').textContent = `p99 ${data.p99.toFixed(1)} мс`;
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
-    link.download = `frame-profile-${Date.now()}.json`; link.click();
-    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-    console.table(data);
-  }, 30000);
-});
-
-Object.assign(window, { __arenaDebug: () => frames.at(-1) });
-$('#worker-test').addEventListener('click', async () => {
-  const result = await compareWorker();
-  $('#worker-status').textContent = `main ${result.mainMs.toFixed(1)} / worker ${result.workerMs.toFixed(1)} мс; ${result.keepWorker ? 'worker швидший' : 'залишено main'}`;
-  console.table(result);
-});

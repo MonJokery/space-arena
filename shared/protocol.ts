@@ -42,7 +42,7 @@ export function decodeInput(raw: ArrayBuffer | ArrayBufferView): InputPacket {
 }
 export function encodeSnapshot(snapshot: Snapshot): ArrayBuffer {
   const { entities, acks } = snapshot;
-  if (entities.length > 1000 || acks.length > 100) throw new Error('Snapshot too big');
+  if (entities.length > 1000 || acks.length > 256) throw new Error('Snapshot too big');
   const buf = new ArrayBuffer(10 + acks.length * 8 + entities.length * 36), v = new DataView(buf);
   v.setUint8(0, VERSION); v.setUint8(1, TYPES.SNAPSHOT); v.setUint32(2, snapshot.tick, true);
   v.setUint16(6, entities.length, true); v.setUint16(8, acks.length, true);
@@ -70,7 +70,7 @@ export function decodeSnapshot(raw: ArrayBuffer | ArrayBufferView): Snapshot {
   const v = view(raw);
   if (v.byteLength < 10 || v.getUint8(0) !== VERSION || v.getUint8(1) !== TYPES.SNAPSHOT) throw new Error('Invalid snapshot');
   const count = v.getUint16(6, true), countAcks = v.getUint16(8, true);
-  if (count > 1000 || countAcks > 100 || v.byteLength !== 10 + countAcks * 8 + count * 36) throw new Error('Wrong snapshot length');
+  if (count > 1000 || countAcks > 256 || v.byteLength !== 10 + countAcks * 8 + count * 36) throw new Error('Wrong snapshot length');
   let p = 10;
   const acks: Snapshot['acks'] = [];
   for (let i = 0; i < countAcks; i++) { acks.push([entityId(v.getUint32(p, true)), inputSeq(v.getUint32(p + 4, true))]); p += 8; }

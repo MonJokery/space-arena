@@ -20,6 +20,19 @@ export function connectLobbyView(lobby: Lobby, root: HTMLElement): void {
     status.textContent = `Доступно кімнат: ${rooms.length}. Список оновлюється кожні 5 с.`;
   });
   lobby.addEventListener('error', (event) => { status.textContent = `Не вдалося оновити кімнати: ${event instanceof CustomEvent ? String(event.detail) : 'Помилка'}`; });
+  root.querySelector<HTMLFormElement>('#create-room-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const value = (selector: string) => root.querySelector<HTMLInputElement>(selector)!.value;
+    const payload = { id: value('#new-room-id').trim(), name: value('#new-room-name').trim(),
+      width: Number(value('#new-room-width')), height: Number(value('#new-room-height')),
+      asteroids: Number(value('#new-room-asteroids')) };
+    try {
+      const response = await fetch('/api/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      status.textContent = 'Кімнату створено.';
+      await lobby.refresh(); roomsSelect.value = payload.id;
+    } catch (error: unknown) { status.textContent = `Не вдалося створити кімнату: ${error instanceof Error ? error.message : String(error)}`; }
+  });
   root.querySelector('#refresh-rooms')?.addEventListener('click', () => { void lobby.refresh(); });
   root.querySelector('#join-form')?.addEventListener('submit', (event) => {
     event.preventDefault();

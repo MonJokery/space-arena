@@ -24,7 +24,7 @@ export function createChat(root: Document) {
     switch (message.type) {
       case 'chat': line(`${message.name}: ${message.text}`); break;
       case 'players': case 'joined': players.textContent = `Гравці: ${message.players.join(', ')}`; break;
-      case 'snapshot': case 'pongTime': case 'gameEvent': break;
+      case 'snapshot': case 'pongTime': case 'gameEvent': case 'shutdown': break;
       default: { const exhaustive: never = message; throw new Error(`Unhandled ${JSON.stringify(exhaustive)}`); }
     }
   });

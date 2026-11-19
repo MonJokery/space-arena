@@ -61,6 +61,8 @@ export class Room extends EventEmitter {
   get players(): string[] { return [...this.members].map((peer) => peer.name); }
 }
 export class RoomStore {
+  constructorLimits = { rooms: 64, players: 16 };
+  setLimits(rooms: number, players: number): void { this.constructorLimits = { rooms, players }; }
   readonly templates: Map<string, RoomConfig>;
   readonly active = new Map<string, Room>();
   constructor(templates: RoomConfig[] = TEMPLATES) {
@@ -70,7 +72,7 @@ export class RoomStore {
     return [...this.templates.values()].map((room) => ({ ...room, players: this.active.get(room.id)?.members.size ?? 0 }));
   }
   create(config: RoomConfig): RoomConfig | null {
-    if (this.templates.has(config.id)) return null;
+    if (this.templates.has(config.id) || this.templates.size >= this.constructorLimits.rooms) return null;
     this.templates.set(config.id, config);
     return config;
   }
@@ -78,7 +80,7 @@ export class RoomStore {
     const template = this.templates.get(id);
     if (!template) return null;
     let room = this.active.get(id);
-    if (!room) { room = new Room(template); this.active.set(id, room); }
+    if (!room) { if (this.active.size >= this.constructorLimits.rooms) return null; room = new Room(template); this.active.set(id, room); }
     return room;
   }
   leave(room: Room, peer: Peer): void {

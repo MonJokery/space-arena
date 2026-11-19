@@ -9,7 +9,7 @@ const duration = Number(process.env.LOAD_SECONDS ?? 10);
 const rows: { clients: number; p50: number; p95: number; p99: number; max: number; exceeded33: boolean }[] = [];
 
 async function createBot(i: number): Promise<{ socket: WebSocket; stop: () => void }> {
-  const socket = new WebSocket(`${base.replace(/^http/, 'ws')}/ws`);
+  const socket = new WebSocket(`${base.replace(/^http/, 'ws')}/ws`, { origin: process.env.BOT_ORIGIN ?? 'http://localhost:5173' });
   await new Promise<void>((resolve,reject)=>{ socket.once('open',resolve); socket.once('error',reject); });
   socket.send(JSON.stringify({ type: 'join', name: `Bot${i}`, roomId: 'training' }));
   await new Promise<void>((resolve,reject)=>{
@@ -34,7 +34,7 @@ for (const count of counts) {
     console.log(`Connecting ${count} bots ...`);
     for (let i=0;i<count;i++) bots.push(await createBot(i));
     await new Promise(r=>setTimeout(r, duration*1000));
-    const response = await fetch(`${base}/health`);
+    const response = await fetch(`${base}/metrics`);
     if (!response.ok) throw new Error(`Health ${response.status}`);
     const result = await response.json() as { tick: { p50:number;p95:number;p99:number;max:number } };
     const row={clients:count,...result.tick,exceeded33:result.tick.p99>33};

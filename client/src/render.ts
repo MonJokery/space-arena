@@ -63,6 +63,16 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites: Record<string
       const frame = entity.kind === 'ship' ? (entity.thrusting ? 2 : 0) : Math.floor(performance.now() / 160) % 4;
       const size = entity.kind === 'bullet' ? entity.radius * 4 : entity.radius * 2.8;
       ctx.drawImage(sprite, frame * 64, 0, 64, 64, -size / 2, -size / 2, size, size);
+      if (entity.homing && entity.kind === 'asteroid') {
+        ctx.strokeStyle = '#ff82c8'; ctx.lineWidth = 3;
+        ctx.shadowColor = '#ff82c8'; ctx.shadowBlur = 13;
+        ctx.beginPath(); ctx.arc(0, 0, size * 0.49, 0, Math.PI * 2); ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+      if (entity.homing && entity.kind === 'bullet') {
+        ctx.strokeStyle = '#ff95e9'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(0, 0, size * 0.55, 0, Math.PI * 2); ctx.stroke();
+      }
       return;
     }
     if (entity.kind === 'ship') shipShape(entity);

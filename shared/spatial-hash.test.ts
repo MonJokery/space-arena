@@ -15,16 +15,9 @@ describe('spatial hash',()=>{
     a.x=100;a.y=100;b.x=500;b.y=350;
     expect(collisionPairs(arena)).toEqual([]);
   });
-  test('small arenas still work', () => {
-  const arena = createArena({ width: 50, height: 50, asteroids: 0 });
-  const a = addShip(arena, entityId(1));
-  const b = addShip(arena, entityId(2));
-
-  const pairs = collisionPairs(arena);
-  const shipPairs = pairs.filter(([left, right]) =>
-    left.id === a.id && right.id === b.id
-  );
-
-  expect(shipPairs).toHaveLength(1);
-});
+  test('small arenas still work',()=>{
+    const arena=createArena({width:50,height:50,asteroids:0});
+    addShip(arena,entityId(1)); addShip(arena,entityId(2));
+    expect(collisionPairs(arena).filter(([a,b]) => a.kind === 'ship' && b.kind === 'ship').length).toBe(1);
+  });
 });

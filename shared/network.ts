@@ -22,11 +22,13 @@ const MessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('chat'), name: z.string(), text: z.string(), time: z.number() }),
   z.object({ type: z.literal('pongTime'), timestamp: z.number() }),
   z.object({ type: z.literal('gameEvent'), eventType: z.enum(['fired','hit','exploded']), id: z.number().int().nonnegative() }),
+  z.object({ type: z.literal('shutdown'), reason: z.string() }),
   SnapshotSchema,
 ]);
 export type JoinedMessage = { type: 'joined'; roomId: string; players: string[]; playerId: EntityId; seed: number; tickRate: number };
 export type ServerMessage = JoinedMessage | Snapshot |
   { type: 'players'; players: string[] } |
+  { type: 'shutdown'; reason: string } |
   { type: 'chat'; name: string; text: string; time: number } |
   { type: 'pongTime'; timestamp: number } |
   { type: 'gameEvent'; eventType: GameEvent['type']; id: EntityId };
@@ -42,7 +44,7 @@ export function parseServerMessage(raw: unknown): ServerMessage {
       acks: message.acks.map(([id, seq]): [EntityId, ReturnType<typeof inputSeq>] => [entityId(id), inputSeq(seq)]),
     };
     case 'gameEvent': return { ...message, id: entityId(message.id) };
-    case 'players': case 'chat': case 'pongTime': return message;
+    case 'players': case 'chat': case 'pongTime': case 'shutdown': return message;
     default: {
       const unreachable: never = message;
       throw new Error(`Unhandled message: ${JSON.stringify(unreachable)}`);

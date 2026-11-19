@@ -40,6 +40,7 @@ export class GameSocket extends EventTarget {
         const raw: unknown = typeof event.data === 'string' ? JSON.parse(event.data) : null;
         message = typeof event.data === 'string' ? parseServerMessage(raw) : decodeSnapshot(event.data);
       } catch { return; }
+      if (message.type === 'shutdown') { this.#stopped = true; this.#message(message); this.#socket?.close(1001, 'Server shutdown'); return; }
       if (message.type === 'pongTime') this.rtt = Math.max(0, performance.now() - message.timestamp);
       if (message.type === 'joined') {
         this.#joined = true; this.#status(`Підключено до ${this.roomId}`);
@@ -57,6 +58,7 @@ export class GameSocket extends EventTarget {
     socket.addEventListener('close', (event: CloseEvent) => {
       if (this.#stopped || this.#socket !== socket) return;
       this.#joined = false;
+      this.dispatchEvent(new Event('disconnected'));
       if ([1008, 1009].includes(event.code)) { this.#status(`З'єднання відхилено: ${event.reason || event.code}`); this.#stopped = true; return; }
       const delay = Math.min(10000, 500 * 2 ** this.#attempt++) + Math.random() * 250;
       this.#status(`Повторне підключення через ${Math.ceil(delay / 1000)} с`);

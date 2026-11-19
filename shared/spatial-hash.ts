@@ -21,6 +21,7 @@ export function collisionPairs(arena: Arena): [Entity, Entity][] {
   for (const bucket of buckets.values()) {
     for (let i = 0; i < bucket.length; i++) for (let j = i + 1; j < bucket.length; j++) {
       const a = bucket[i]!; const b = bucket[j]!;
+      if (a.id === b.id) continue;
       const low = Math.min(a.id, b.id), high = Math.max(a.id, b.id);
       const key = `${low}:${high}`;
       if (!seen.has(key)) { seen.add(key); result.push(a.id < b.id ? [a, b] : [b, a]); }

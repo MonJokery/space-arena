@@ -1,46 +1,57 @@
-## Запуск і перевірка
+# Space Arena — Lab 08
 
+[![CI](https://github.com/MonJokery/space-arena/actions/workflows/ci.yml/badge.svg)](https://github.com/MonJokery/space-arena/actions)
+
+**WebSocket:** тільки `wss://` на публічному HTTPS.
+
+
+## Запуск
 ```powershell
 npm.cmd install
 npm.cmd run typecheck
-npm.cmd run lint
 npm.cmd test
 npm.cmd run build
 npm.cmd run dev
 ```
+Docker (у корені проєкту):
+```powershell
+docker build -t space-arena:v1.0.0 .
+docker image inspect space-arena:v1.0.0 --format '{{.Size}}'
+docker run --rm -p 3000:3000 -e ALLOWED_ORIGINS=http://localhost:3000 --name space-arena space-arena:v1.0.0
+```
 
-## Порівняння продуктивності
+## Архітектура
 
-Вимірювання протягом 30 секунд із 8 ботами.
+```text
+Браузер (PWA/Canvas) ── HTTPS + WSS ── Proxy/TLS ── Node.js (один процес)
+                                     ├─ RoomStore / WS / input
+                                     ├─ shared/ симуляція 30 Гц
+                                     ├─ NDJSON match replay + JSON pino logs
+                                     └─ /health, /ready, /metrics
+```
 
-Показник - До (Lab 06) - Після (Lab 07)
+## Результати попередніх лабораторних
 
-p50 кадру, мс 11,5 — 10,0  
-p95 кадру, мс 17,8 — 10,1 
-p99 кадру, мс 24,6 — 10,2 
-Найдовша пауза GC, мс 8,5 — 2,1 
-Найбільше об'єктів створює Вектори, кулі, частинки — Тимчасові об'єкти рендеру 
+| Формат | JSON | Binary |
+| Input | 107 Б | 8 Б |
+| Snapshot (приклад) | 1853 Б | 350 Б |
 
+| Кадр Lab 07 | Значення |
+| p50 | 10,0 мс |
+| p95 | 10,1 мс |
+| p99 | 10,2 мс |
+| Максимальний кадр | 10,4 мс |
+| Довгих кадрів | 0 за 30 с |
+| p95 рендеру | 0,5 мс |
 
-## Flame Chart
+Тест Lab 07: 30 секунд, 3001 вимірювання. У експерименті Worker: головний потік — 14,8 мс, Worker — 28,0 мс; прискорення не підтверджено. Це локальні результати, а не показники публічного сервера. Показники GC та Lab 06 не виміряні достовірно, тому не вказуються як фактичні.
 
-![До оптимізації](docs/flame-before.png)
+## Демонстрація
 
-![Після оптимізації](docs/flame-after.png)
+![GIF двох гравців](docs/two-windows.gif)
 
-## Навантаження сервера
+**Відео 3–5 хв:** _вставити посилання після запису_.
 
-| Кількість клієнтів | p99 кроку, мс | Понад 33 мс? |
-| 8 | 1.7 | Ні |
-| 32 | 6.5 | Ні |
-| 64 | 15.3 | Ні |
-| 128 | Не виміряно | — | ECONNRESET |
-
-## Web Worker
-
-Порівняння обчислень у головному потоці та Web Worker:
-
-- Main thread: 14.8 мс.
-- Web Worker: 28.0 мс.
-
-Висновок: у проведеному тесті Web Worker виконав обчислення повільніше (28,0 мс проти 14,8 мс). Оскільки прискорення не підтверджено, Worker не залишено в основній логіці гри.
+| Перевірка з різних мереж | RTT |
+| Гравець 1 | — мс |
+| Гравець 2 | — мс |
