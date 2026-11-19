@@ -50,7 +50,9 @@ docker run --rm -p 3000:3000 -e ALLOWED_ORIGINS=http://localhost:3000 --name spa
 
 ![GIF двох гравців](docs/two-windows.gif)
 
-**Відео 3–5 хв:** _вставити посилання після запису_.
+
+
+**Відео 3–5 хв:** https://youtu.be/N0sVC7rIWc4?si=L52DebJiJGkS9Bhm.
 
 | Перевірка з різних мереж | RTT |
 | Гравець 1 | 2 мс |
