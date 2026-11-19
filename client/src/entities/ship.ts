@@ -1,5 +1,5 @@
 import { Entity } from './entity.ts';
-import { Bullet } from './bullet.ts';
+import type { Bullet } from './bullet.ts';
 import { Vector2 } from '../vector2.ts';
 import { integrate } from '../physics.ts';
 import { emitGameEvent } from '../events.ts';
@@ -33,8 +33,7 @@ export class Ship extends Entity {
     const direction = Vector2.fromAngle(this.angle);
     const position = world.wrap(this.position.add(direction.scale(this.radius + 10)));
     const velocity = this.velocity.add(direction.scale(homing ? 260 : 440));
-    const bullet = new Bullet({ position, velocity, ownerId: this.id, homing });
-    world.spawn(bullet);
+    const bullet = world.fireBullet(position, velocity, this.id, homing);
     emitGameEvent('fired', { ownerId: this.id });
     this.cooldown = homing ? 0.48 : 0.17;
     return bullet;

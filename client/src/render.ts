@@ -1,22 +1,24 @@
-import type { Vector2 } from '../../shared/types.ts';
+type ScreenVector = { x: number; y: number };
 export type RenderEntity = {
  id: number; kind: 'ship' | 'bullet' | 'asteroid' | 'pickup' | 'particle';
  x: number; y: number; vx: number; vy: number; angle: number; radius: number;
- position: Vector2; previousPosition?: Vector2; velocity: Vector2;
+ position: ScreenVector; previousPosition?: ScreenVector; velocity: ScreenVector;
  dead?: boolean; homing?: boolean; thrusting?: boolean; invulnerable?: number;
  ttl?: number; maxTtl?: number; color?: string;
 };
-import { interpolateShip } from './physics.ts';
+
 
 export function createRenderer(canvas: HTMLCanvasElement, sprites: Record<string, ImageBitmap | HTMLImageElement> = {}) {
   const ctx = canvas.getContext('2d')!;
   let width = 960;
   let height = 600;
+  const size = { width, height };
   let stars: { x: number; y: number; size: number; glow: number }[] = [];
   function resize() {
     const bounds = canvas.getBoundingClientRect();
     width = Math.max(1, bounds.width);
     height = Math.max(1, bounds.height);
+    size.width = width; size.height = height;
     const dpr = window.devicePixelRatio || 1;
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
@@ -94,9 +96,18 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites: Record<string
     for (const entity of world) {
       if (entity.dead) continue;
       const from = entity.previousPosition || entity.position;
-      const position = interpolateShip({ x: from.x, y: from.y, vx: 0, vy: 0, angle: entity.angle || 0 }, { x: entity.position.x, y: entity.position.y, vx: 0, vy: 0, angle: entity.angle || 0 }, alpha, width, height);
-      for (const ox of [-width, 0, width]) for (const oy of [-height, 0, height]) {
-        ctx.save(); ctx.translate(position.x + ox, position.y + oy);
+      let dx = entity.position.x - from.x;
+      let dy = entity.position.y - from.y;
+      if (Math.abs(dx) > width / 2) dx -= Math.sign(dx) * width;
+      if (Math.abs(dy) > height / 2) dy -= Math.sign(dy) * height;
+      const x = ((from.x + dx * alpha) % width + width) % width;
+      const y = ((from.y + dy * alpha) % height + height) % height;
+      const maxX = x < entity.radius * 2 ? 1 : x > width - entity.radius * 2 ? -1 : 0;
+      const maxY = y < entity.radius * 2 ? 1 : y > height - entity.radius * 2 ? -1 : 0;
+      for (let ix = 0; ix <= Math.abs(maxX); ix++) for (let iy = 0; iy <= Math.abs(maxY); iy++) {
+        const ox = ix * Math.sign(maxX) * width;
+        const oy = iy * Math.sign(maxY) * height;
+        ctx.save(); ctx.translate(x + ox, y + oy);
         if (entity.kind === 'ship' && (entity.invulnerable ?? 0) > 0) ctx.globalAlpha = 0.6;
         entityShape(entity);
         ctx.restore();
@@ -104,5 +115,5 @@ export function createRenderer(canvas: HTMLCanvasElement, sprites: Record<string
     }
   }
   resize();
-  return { draw, resize, getSize: () => ({ width, height }) };
+  return { draw, resize, getSize: () => size };
 }

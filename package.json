@@ -1,7 +1,7 @@
 {
-  "name": "space-arena-lab-06",
+  "name": "space-arena-lab-07",
   "private": true,
-  "version": "6.0.0",
+  "version": "7.0.0",
   "type": "module",
   "workspaces": [
     "client",
@@ -12,16 +12,26 @@
     "dev": "node scripts/dev.js",
     "build": "npm run typecheck && npm run build --workspace client",
     "start": "npm run start --workspace server",
-    "test": "node --import tsx --test server/test/validation.test.js shared/simulation.test.ts",
+    "test": "vitest run --coverage",
     "lint": "npm run lint --workspace client",
     "format": "npm run format --workspace client",
     "measure:protocol": "node --import tsx scripts/measure-protocol.js",
-    "typecheck": "tsc --project tsconfig.json --noEmit"
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:unit": "vitest run",
+    "load": "node --import tsx scripts/load.ts",
+    "load:compare": "node --import tsx scripts/compare-collisions.ts",
+    "profile:gc": "node --expose-gc --trace-gc --import tsx scripts/profile-gc.ts"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
     "tsx": "^4.20.6",
     "@types/node": "^22.0.0",
-    "@types/ws": "^8.18.1"
+    "@types/ws": "^8.18.1",
+    "vitest": "^3.2.0",
+    "@vitest/coverage-v8": "^3.2.0",
+    "fast-check": "^4.2.0",
+    "@playwright/test": "^1.55.0"
   }
 }

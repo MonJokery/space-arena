@@ -2,6 +2,7 @@ import { emitGameEvent } from './events.ts';
 import { Vector2 } from './vector2.ts';
 import { processCollisions } from './collisions.ts';
 import { Particle } from './entities/particle.ts';
+import { Bullet } from './entities/bullet.ts';
 import { Ship } from './entities/ship.ts';
 import type { Entity } from './entities/entity.ts';
 
@@ -10,6 +11,12 @@ export class World implements Iterable<Entity> {
   readonly height: number;
   readonly entities = new Map<number, Entity>();
   readonly pending: Entity[] = [];
+  readonly particlesPool: Particle[] = [];
+  readonly bulletsPool: Bullet[] = [];
+  fireBullet(position: Vector2, velocity: Vector2, ownerId: number, homing = false): Bullet {
+    const bullet = this.bulletsPool.pop()?.revive({position,velocity,ownerId,homing}) ?? new Bullet({position,velocity,ownerId,homing});
+    return this.spawn(bullet);
+  }
   respawns: { id: number; time: number }[] = [];
   playerId: number | null = null;
   score = 0;
@@ -30,7 +37,11 @@ export class World implements Iterable<Entity> {
     this.pending.length = 0;
   }
   sweep(): void {
-    for (const [id, entity] of this.entities) if (entity.dead) this.entities.delete(id);
+    for (const [id, entity] of this.entities) if (entity.dead) {
+      this.entities.delete(id);
+      if (entity instanceof Particle && this.particlesPool.length < 256) this.particlesPool.push(entity);
+      else if (entity instanceof Bullet && this.bulletsPool.length < 256) this.bulletsPool.push(entity);
+    }
   }
   delta(from: Vector2, to: Vector2): Vector2 {
     let x = to.x - from.x;
@@ -54,7 +65,8 @@ export class World implements Iterable<Entity> {
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count + Math.random() * 0.25;
       const speed = 40 + Math.random() * 135;
-      this.spawn(new Particle({ position, velocity: Vector2.fromAngle(angle).scale(speed), color, ttl: 0.25 + Math.random() * 0.55 }));
+      const velocity = Vector2.fromAngle(angle).scale(speed), ttl = 0.25 + Math.random() * 0.55;
+      this.spawn(this.particlesPool.pop()?.revive(position, velocity, color, ttl) ?? new Particle({ position, velocity, color, ttl }));
     }
   }
   destroyShip(ship: Ship): void {

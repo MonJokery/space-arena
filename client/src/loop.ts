@@ -1,6 +1,6 @@
 // Фізика працює з фіксованим кроком 1/60 с.
 export type LoopStats = { fps: number; sps: number; frameMs: number; maxFrameMs: number };
-export function createLoop({ update, render, onStats = () => {} }: { update: (dt: number) => void; render: (alpha: number) => void; onStats?: (stats: LoopStats) => void }) {
+export function createLoop({ update, render, onStats = () => {}, onFrame = (_duration: number) => {} }: { update: (dt: number) => void; render: (alpha: number) => void; onStats?: (stats: LoopStats) => void; onFrame?: (duration: number) => void }) {
   const stepMs = 1000 / 60;
   let running = false;
   let frameId = 0;
@@ -14,6 +14,7 @@ export function createLoop({ update, render, onStats = () => {} }: { update: (dt
   function frame(time: number) {
     if (!running) return;
     const rawMs = Math.max(0, time - lastTime);
+    onFrame(rawMs);
     lastTime = time;
     accumulator += Math.min(rawMs, 250);
     maxFrameMs = Math.max(maxFrameMs, rawMs);

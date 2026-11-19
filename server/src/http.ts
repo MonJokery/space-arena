@@ -4,6 +4,7 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { extname, resolve, relative, isAbsolute } from 'node:path';
 import { pipeline } from 'node:stream/promises';
+import { tickMetrics } from './performance.ts';
 import { RoomConfigSchema } from './protocol.ts';
 import type { RoomStore } from './room.ts';
 import type { Config } from './config.ts';
@@ -17,7 +18,7 @@ export function createHttpServer(config: Config, rooms: RoomStore, logger: Logge
       const rawPath = (request.url ?? '/').split('?')[0] ?? '/';
       if (/(^|\/)\.\.(\/|$)/.test(rawPath) || /%2e/i.test(rawPath) || /%2f/i.test(rawPath) || /%5c/i.test(rawPath) || rawPath.includes('\\')) { json(403, { error: 'Forbidden path' }); return; }
       const url = new URL(request.url ?? '/', 'http://localhost');
-      if (request.method === 'GET' && url.pathname === '/health') { json(200, { status: 'ok', rss: process.memoryUsage().rss, uptime: process.uptime() }); return; }
+      if (request.method === 'GET' && url.pathname === '/health') { json(200, { status: 'ok', rss: process.memoryUsage().rss, uptime: process.uptime(), tick: tickMetrics() }); return; }
       if (request.method === 'GET' && url.pathname === '/api/rooms') { json(200, { rooms: rooms.list() }); return; }
       if (request.method === 'POST' && url.pathname === '/api/rooms') {
         let raw = '';

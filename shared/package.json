@@ -1,1 +1,9 @@
-{"name":"@space-arena/shared","private":true,"version":"6.0.0","type":"module"}
+{
+  "name": "@space-arena/shared",
+  "private": true,
+  "version": "7.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  }
+}

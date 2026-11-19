@@ -14,6 +14,13 @@ export class Bullet extends Entity {
     this.damage = homing ? 30 : 25;
     this.homing = homing ? createHoming({ turnRate: 3.4, speed: 260, targetKind: 'asteroid' }) : null;
   }
+  revive({ position, velocity, ownerId, homing = false }: {position: Vector2;velocity:Vector2;ownerId:number;homing?:boolean}): this {
+    this.position = position; this.previousPosition = position; this.velocity = velocity;
+    this.ownerId = ownerId; this.ttl = 1.9; this.radius = homing ? 6 : 4;
+    this.damage = homing ? 30 : 25; this.homing = homing ? createHoming({turnRate:3.4,speed:260,targetKind:'asteroid'}) : null;
+    this.dead = false;
+    return this;
+  }
   override update(dt: number, world: World): void {
     if (this.homing) this.homing.update(this, world, dt);
     super.update(dt, world);

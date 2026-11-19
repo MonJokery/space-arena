@@ -1,5 +1,6 @@
+import { collisionPairs } from './spatial-hash.ts';
 import { entityId, tickNumber, assertNever } from './types.ts';
-import type { Arena, ArenaConfig, Entity, EntityId, ShipEntity, Controls, GameEvent, Snapshot, SnapshotEntity, Motion, Vector2, InputSeq } from './types.ts';
+import type { Arena, ArenaConfig, Entity, EntityId, ShipEntity, BulletEntity, Controls, GameEvent, Snapshot, SnapshotEntity, Motion, Vector2, InputSeq } from './types.ts';
 
 export const TICK_RATE = 30;
 export const DT = 1 / TICK_RATE;
@@ -51,11 +52,34 @@ export function addShip(arena: Arena, id: EntityId): ShipEntity {
   arena.entities.set(id, ship);
   return ship;
 }
+const bulletPools = new WeakMap<Arena, BulletEntity[]>();
+export function getBulletPoolSize(arena: Arena): number { return bulletPools.get(arena)?.length ?? 0; }
+function releaseBullet(arena: Arena, bullet: BulletEntity): void {
+  arena.entities.delete(bullet.id);
+  let pool = bulletPools.get(arena);
+  if (!pool) { pool = []; bulletPools.set(arena, pool); }
+  if (pool.length < 256) pool.push(bullet);
+}
+function acquireBullet(arena: Arena, owner: ShipEntity, input: Controls): BulletEntity {
+  let pool = bulletPools.get(arena);
+  if (!pool) { pool = []; bulletPools.set(arena, pool); }
+  const bullet: BulletEntity = pool.pop() ?? { id: entityId(0), kind: 'bullet', owner: owner.id,
+    x: 0, y: 0, vx: 0, vy: 0, angle: 0, radius: 5, ttl: 1.3, hp: 1, homing: false };
+  bullet.id = entityId(arena.nextId++);
+  bullet.owner = owner.id;
+  bullet.x = (owner.x + Math.cos(owner.angle) * 24 + arena.width) % arena.width;
+  bullet.y = (owner.y + Math.sin(owner.angle) * 24 + arena.height) % arena.height;
+  bullet.vx = owner.vx + Math.cos(owner.angle) * 510;
+  bullet.vy = owner.vy + Math.sin(owner.angle) * 510;
+  bullet.angle = owner.angle; bullet.radius = 5; bullet.ttl = 1.3;
+  bullet.hp = 1; bullet.homing = !!input.homing;
+  return bullet;
+}
 export function advanceArena(arena: Arena, inputs: ReadonlyMap<EntityId, Controls> = new Map()): GameEvent[] {
   const { width, height } = arena;
   arena.tick = tickNumber(arena.tick + 1);
   const events: GameEvent[] = [];
-  for (const entity of [...arena.entities.values()]) {
+  for (const entity of arena.entities.values()) {
     switch (entity.kind) {
       case 'ship': {
         if (entity.hp <= 0) {
@@ -68,8 +92,8 @@ export function advanceArena(arena: Arena, inputs: ReadonlyMap<EntityId, Control
         entity.cooldown = Math.max(0, entity.cooldown - DT);
         Object.assign(entity, wrap(integrate(entity, input), width, height));
         if (input.fire && entity.cooldown === 0) {
-          const id = entityId(arena.nextId++);
-          arena.entities.set(id, { id, kind: 'bullet', owner: entity.id, x: (entity.x + Math.cos(entity.angle) * 24 + width) % width, y: (entity.y + Math.sin(entity.angle) * 24 + height) % height, vx: entity.vx + Math.cos(entity.angle) * 510, vy: entity.vy + Math.sin(entity.angle) * 510, angle: entity.angle, radius: 5, ttl: 1.3, hp: 1, homing: !!input.homing });
+          const bullet = acquireBullet(arena, entity, input);
+          arena.entities.set(bullet.id, bullet);
           entity.cooldown = 0.23;
           events.push({ type: 'fired', id: entity.id });
         }
@@ -77,7 +101,7 @@ export function advanceArena(arena: Arena, inputs: ReadonlyMap<EntityId, Control
       }
       case 'bullet': {
         entity.ttl -= DT;
-        if (entity.ttl <= 0) { arena.entities.delete(entity.id); break; }
+        if (entity.ttl <= 0) { releaseBullet(arena, entity); break; }
         if (entity.homing) {
           const target = [...arena.entities.values()].find((other) => other.kind === 'asteroid');
           if (target) {
@@ -105,16 +129,14 @@ export function advanceArena(arena: Arena, inputs: ReadonlyMap<EntityId, Control
       default: assertNever(entity);
     }
   }
-  const values = [...arena.entities.values()];
-  for (let i = 0; i < values.length; i++) for (let j = i + 1; j < values.length; j++) {
-    const a = values[i], b = values[j];
-    if (!a || !b || !arena.entities.has(a.id) || !arena.entities.has(b.id)) continue;
+  for (const [a, b] of collisionPairs(arena)) {
+    if (!arena.entities.has(a.id) || !arena.entities.has(b.id)) continue;
     if (distanceSquared(a, b, width, height) > (a.radius + b.radius) ** 2) continue;
     const bullet = a.kind === 'bullet' ? a : b.kind === 'bullet' ? b : null;
     const victim = bullet === a ? b : a;
     if (bullet && (victim.kind === 'ship' || victim.kind === 'asteroid') && bullet.owner !== victim.id) {
       if (victim.kind === 'ship' && victim.invulnerable > 0) continue;
-      arena.entities.delete(bullet.id);
+      releaseBullet(arena, bullet);
       victim.hp -= victim.kind === 'ship' ? 20 : 1;
       if (victim.kind === 'ship') victim.invulnerable = 0.5;
       events.push({ type: 'hit', id: victim.id });

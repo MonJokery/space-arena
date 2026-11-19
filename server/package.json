@@ -1,11 +1,12 @@
 {
   "name": "@space-arena/server",
-  "version": "6.0.0",
+  "version": "7.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "node --import tsx --watch src/index.ts",
-    "start": "node --import tsx src/index.ts"
+    "start": "node --import tsx src/index.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "ws": "^8.18.0",

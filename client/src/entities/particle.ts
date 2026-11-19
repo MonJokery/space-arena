@@ -12,6 +12,12 @@ export class Particle extends Entity {
     this.ttl = ttl;
     this.maxTtl = ttl;
   }
+  revive(position: Vector2, velocity: Vector2, color: string, ttl: number): this {
+    this.position = position; this.previousPosition = position;
+    this.velocity = velocity; this.color = color;
+    this.ttl = ttl; this.maxTtl = ttl; this.dead = false;
+    return this;
+  }
   override update(dt: number, world: World): void {
     super.update(dt, world);
     this.ttl -= dt;

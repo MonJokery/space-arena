@@ -40,8 +40,8 @@
           <div class="control-row">Поправка: <b id="net-error">0</b> px</div>
           <label>Режим</label><select id="predict"><option value="off">Без prediction</option><option value="on" selected>Prediction + replay</option></select>
           <label>Пакети</label><select id="protocol"><option value="binary" selected>DataView binary</option><option value="json">JSON</option></select>
-          <label>Затримка, мс</label><input id="latency" type="number" min="0" max="300" value="100" />
-          <label>Jitter, мс</label><input id="jitter" type="number" min="0" max="150" value="20" />
+          <label>Затримка, мс</label><input id="latency" type="number" min="0" max="300" value="0" />
+          <label>Jitter, мс</label><input id="jitter" type="number" min="0" max="150" value="0" />
           <label>Втрата, %</label><input id="loss" type="number" min="0" max="40" value="0" />
           <p class="hint">Зміна протоколу діє при наступному вході в кімнату.</p></section>
           <section class="panel chat-panel"><p class="eyebrow">02 - CHAT</p><h2>Чат кімнати</h2><p id="chat-status" class="hint">Не підключено</p><p id="chat-players" class="hint">Гравці: —</p><div id="chat-messages" class="chat-messages" aria-live="polite"></div><form id="chat-form"><input id="chat-input" maxlength="500" placeholder="Повідомлення…" autocomplete="off" aria-label="Повідомлення"/><button class="primary" type="submit">Надіслати</button></form><button id="leave-room" class="secondary">Вийти в лобі</button></section>
@@ -51,5 +51,8 @@
       
     </div>
     <script type="module" src="/src/main.ts"></script>
-  </body>
+  <div id="lab7-tools" style="position:fixed;bottom:9px;right:9px;z-index:20;background:#13203ce8;color:#eaf6ff;padding:8px;border:1px solid #405675;border-radius:8px;font:12px sans-serif">
+<button id="profile-30">Профіль 30 с</button><span id="profile-status">Готово до запису</span><button id="worker-test">Worker порівняння</button><span id="worker-status"></span>
+</div>
+</body>
 </html>

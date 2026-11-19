@@ -8,6 +8,8 @@ import { entityId } from '../../shared/types.ts';
 import type { EntityId, InputPacket, Snapshot } from '../../shared/types.ts';
 import type { Room, RoomStore, Peer } from './room.ts';
 import type { Logger, LogEntry } from './logger.ts';
+import { rateLimit } from './rate-limit.ts';
+import { recordTick } from './performance.ts';
 import { TICK_RATE } from '../../shared/simulation.ts';
 
 const MAX_BUFFER = 128 * 1024;
@@ -58,15 +60,12 @@ export function attachSockets(server: Server, rooms: RoomStore, logger: Logger):
     socket.on('error', (error: Error) => console.error('WebSocket:', error.message));
     socket.on('message', (raw: RawData, isBinary: boolean) => {
       const now = Date.now();
-      if (now - peer.windowStart >= 1000) { peer.windowStart = now; peer.count = 0; }
-      if (++peer.count > MAX_PER_SECOND) { socket.close(1008, 'Rate limited'); return; }
+      const limit = rateLimit(peer.windowStart, peer.count, now, MAX_PER_SECOND);
+      peer.windowStart = limit.windowStart; peer.count = limit.count;
+      if (!limit.allowed) { socket.close(1008, 'Rate limited'); return; }
       let message: ParsedClientMessage;
       try {
-        const bytes = Array.isArray(raw)
-    ? Buffer.concat(raw)
-    : raw instanceof ArrayBuffer
-    ? Buffer.from(raw)
-    : Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength);
+        const bytes = Array.isArray(raw) ? Buffer.concat(raw) : raw instanceof ArrayBuffer ? Buffer.from(raw) : Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength);
         if (isBinary) {
           if (!peer.room || jsonModes.get(socket)) throw new Error('Unexpected binary input');
           message = decodeInput(bytes);
@@ -125,6 +124,7 @@ export function attachSockets(server: Server, rooms: RoomStore, logger: Logger):
     let now = performance.now();
     let count = 0;
     while (now >= target && count < 5) {
+      const tickStart = performance.now();
       for (const room of rooms.active.values()) {
         const { state, events } = room.step();
         for (const player of room.members) {
@@ -135,6 +135,7 @@ export function attachSockets(server: Server, rooms: RoomStore, logger: Logger):
           for (const event of events) send(peer, { type: 'gameEvent', eventType: event.type, id: event.id });
         }
       }
+      recordTick(performance.now() - tickStart);
       target += PERIOD;
       count++;
       now = performance.now();

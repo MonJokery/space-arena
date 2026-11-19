@@ -14,9 +14,11 @@ import { integrate, wrap, DT } from '../../shared/simulation.ts';
 import { inputSeq } from '../../shared/types.ts';
 import type { InputPacket, Snapshot, SnapshotEntity, EntityId } from '../../shared/types.ts';
 import type { ServerMessage } from '../../shared/network.ts';
-import { interpolateShip } from './physics.ts';
 import { emitGameEvent } from './events.ts';
+import { reconcile } from './net/reconciliation.ts';
 import { createChat } from './net/chat.ts';
+import { compareWorker, computeFrameP99 } from './profile/worker-experiment.ts';
+import { frameProfiler } from './profile/frame-profiler.ts';
 
 const $ = <T extends HTMLElement = HTMLInputElement>(selector: string): T => {
   const element = document.querySelector<T>(selector);
@@ -110,21 +112,17 @@ let lastTick = 0;
 let frames: Snapshot[] = [];
 type FakeBullet = Omit<RenderEntity, 'position' | 'velocity'> & { created: number };
 let fakeBullets: FakeBullet[] = [];
+const fakeBulletPool: FakeBullet[] = [];
+const lastFramePositions = new Map<number, { x: number; y: number }>();
+const previousById = new Map<number, SnapshotEntity>();
+const visibleIds = new Set<number>();
 const view = { entities: new Map<number, RenderEntity>(), [Symbol.iterator]() { return this.entities.values(); } };
 const socket = chat.socket;
 
 function getImpairment(): void {
-  socket.impairment = {
-    delay: Math.min(300, Math.max(0, Number($('#latency').value) || 0)),
-    jitter: Math.min(150, Math.max(0, Number($('#jitter').value) || 0)),
-    loss: Math.min(40, Math.max(0, Number($('#loss').value) || 0)),
-  };
-}
-function blendState(a: SnapshotEntity | undefined, b: SnapshotEntity, t: number, width: number, height: number): SnapshotEntity {
-  if (!a) return b;
-  if (!b) return a;
-  const pos = interpolateShip(a, b, t, width, height);
-  return { ...b, ...pos };
+  socket.impairment.delay = Math.min(300, Math.max(0, Number($('#latency').value) || 0));
+  socket.impairment.jitter = Math.min(150, Math.max(0, Number($('#jitter').value) || 0));
+  socket.impairment.loss = Math.min(40, Math.max(0, Number($('#loss').value) || 0));
 }
 function receiveSnapshot(state: Snapshot): void {
   if (state.tick <= lastTick) return;
@@ -135,11 +133,9 @@ function receiveSnapshot(state: Snapshot): void {
   const authoritative = state.entities.find((e) => e.id === playerId && e.kind === 'ship');
   if (!authoritative) return;
   const ack = new Map(state.acks).get(playerId!) ?? 0;
-  pending = pending.filter((e) => e.seq > ack);
-  let reconciled = { ...authoritative };
-  if ($('#predict').value !== 'off') {
-    for (const item of pending) reconciled = wrap(integrate(reconciled, item, DT), roomConfig.width, roomConfig.height);
-  }
+  const result = reconcile(authoritative, pending, ack, roomConfig.width, roomConfig.height);
+  pending = result.pending;
+  const reconciled = $('#predict').value !== 'off' ? result.state : authoritative;
   if (predicted) {
     const dx = shortest(reconciled.x - predicted.x, roomConfig.width);
     const dy = shortest(reconciled.y - predicted.y, roomConfig.height);
@@ -162,7 +158,7 @@ socket.addEventListener('message', (event) => {
   const message: ServerMessage = event.detail;
   if (message.type === 'joined') {
     playerId = message.playerId;
-    seq = 0; pending = []; predicted = null; lastTick = 0; frames = []; fakeBullets = [];
+    seq = 0; pending = []; predicted = null; lastTick = 0; frames = []; fakeBulletPool.push(...fakeBullets); fakeBullets = []; lastFramePositions.clear();
   }
   if (message.type === 'snapshot') receiveSnapshot(message);
   if (message.type === 'gameEvent' && !(message.eventType === 'fired' && message.id === playerId && $('#predict').value !== 'off')) emitGameEvent(message.eventType);
@@ -184,7 +180,7 @@ async function startGame({ name, room }: { name: string; room: RoomInfo }): Prom
   window.addEventListener('resize', onResize);
   reset();
   loop?.stop();
-  loop = createLoop({ update, render, onStats });
+  loop = createLoop({ update, render, onStats, onFrame: frameProfiler.frame });
   loop.start();
 }
 function reset(): void {
@@ -214,7 +210,9 @@ function update(dt: number): void {
             );
           }
           if (command.fire && predicted && (fakeBullets.length === 0 || performance.now() - fakeBullets[fakeBullets.length - 1]!.created > 225)) {
-            fakeBullets.push({ id: -(seq + 1), kind: 'bullet', x: predicted.x + Math.cos(predicted.angle) * 23, y: predicted.y + Math.sin(predicted.angle) * 23, vx: predicted.vx + Math.cos(predicted.angle) * 510, vy: predicted.vy + Math.sin(predicted.angle) * 510, radius: 5, angle: predicted.angle, created: performance.now(), homing: command.homing });
+            const bullet: FakeBullet = fakeBulletPool.pop() ?? { id: 0, kind: 'bullet', x: 0, y: 0, vx: 0, vy: 0, radius: 5, angle: 0, created: 0 };
+            Object.assign(bullet, { id: -(seq + 1), x: predicted.x + Math.cos(predicted.angle) * 23, y: predicted.y + Math.sin(predicted.angle) * 23, vx: predicted.vx + Math.cos(predicted.angle) * 510, vy: predicted.vy + Math.sin(predicted.angle) * 510, radius: 5, angle: predicted.angle, created: performance.now(), homing: command.homing });
+            fakeBullets.push(bullet);
             emitGameEvent('fired');
           }
         }
@@ -223,7 +221,7 @@ function update(dt: number): void {
   }
   correction.x *= Math.exp(-dt / 0.1);
   correction.y *= Math.exp(-dt / 0.1);
-  fakeBullets = fakeBullets.filter((b) => performance.now() - b.created < 220);
+  for (let i = fakeBullets.length - 1; i >= 0; i--) if (performance.now() - fakeBullets[i]!.created >= 220) fakeBulletPool.push(fakeBullets.splice(i, 1)[0]!);
   for (const bullet of fakeBullets) {
     bullet.x = ((bullet.x + bullet.vx * dt) % roomConfig.width + roomConfig.width) % roomConfig.width;
     bullet.y = ((bullet.y + bullet.vy * dt) % roomConfig.height + roomConfig.height) % roomConfig.height;
@@ -232,35 +230,68 @@ function update(dt: number): void {
 function render(): void {
   if (!renderer || !frames.length) return;
   const latest = frames[frames.length - 1]!;
-  const targetTick = latest.tick - 3;
+  const targetTick = Math.min(latest.tick, latest.tick - 3 + Math.max(0, performance.now() - lastSnapshotTime) / (1000 / 30));
   let a = frames[0]!, b = latest;
   for (let i = 1; i < frames.length; i++) {
     if (frames[i]!.tick >= targetTick) { a = frames[i - 1]!; b = frames[i]!; break; }
   }
   const t = a.tick === b.tick ? 1 : Math.max(0, Math.min(1, (targetTick - a.tick) / (b.tick - a.tick)));
-  const previous = new Map(a.entities.map((e) => [e.id, e]));
-  view.entities.clear();
+  previousById.clear();
+  for (const entity of a.entities) previousById.set(entity.id, entity);
+  visibleIds.clear();
   const viewport = renderer.getSize();
   const scaleX = viewport.width / roomConfig.width;
   const scaleY = viewport.height / roomConfig.height;
   for (const entity of b.entities) {
-    let state = blendState(previous.get(entity.id), entity, t, roomConfig.width, roomConfig.height);
-    if (entity.kind === 'ship' && entity.id === playerId && predicted && $('#predict').value !== 'off') {
-      state = { ...predicted, x: ((predicted.x + correction.x) % roomConfig.width + roomConfig.width) % roomConfig.width, y: ((predicted.y + correction.y) % roomConfig.height + roomConfig.height) % roomConfig.height };
+    const before = previousById.get(entity.id);
+    let stateX = entity.x, stateY = entity.y, stateAngle = entity.angle;
+    if (before && before !== entity) {
+      const dx = shortest(entity.x - before.x, roomConfig.width);
+      const dy = shortest(entity.y - before.y, roomConfig.height);
+      stateX = (before.x + dx * t + roomConfig.width) % roomConfig.width;
+      stateY = (before.y + dy * t + roomConfig.height) % roomConfig.height;
+      const angleDelta = Math.atan2(Math.sin(entity.angle - before.angle), Math.cos(entity.angle - before.angle));
+      stateAngle = before.angle + angleDelta * t;
     }
-    const sx = state.x * scaleX, sy = state.y * scaleY;
-    view.entities.set(entity.id, {
-      ...state, x: sx, y: sy, radius: state.radius * Math.min(scaleX, scaleY),
-      position: { x: sx, y: sy }, previousPosition: { x: sx, y: sy },
-      velocity: { x: state.vx * scaleX, y: state.vy * scaleY },
-      thrusting: entity.kind === 'ship' && entity.id === playerId && (input?.read().thrust ?? false),
-    });
+    if (entity.kind === 'ship' && entity.id === playerId && predicted && $('#predict').value !== 'off') {
+      const keys = input?.read();
+      stateX = ((predicted.x + predicted.vx * accumulator + correction.x) % roomConfig.width + roomConfig.width) % roomConfig.width;
+      stateY = ((predicted.y + predicted.vy * accumulator + correction.y) % roomConfig.height + roomConfig.height) % roomConfig.height;
+      stateAngle = predicted.angle + (Number(!!keys?.right) - Number(!!keys?.left)) * 3.4 * accumulator;
+    }
+    const sx = stateX * scaleX, sy = stateY * scaleY;
+    const item: RenderEntity = view.entities.get(entity.id) ?? {
+      id: entity.id, kind: entity.kind, x: 0, y: 0, vx: 0, vy: 0,
+      angle: stateAngle, radius: entity.radius, position: { x: 0, y: 0 },
+      previousPosition: { x: 0, y: 0 }, velocity: { x: 0, y: 0 },
+    };
+    const old = lastFramePositions.get(entity.id);
+    item.previousPosition!.x = old?.x ?? sx;
+    item.previousPosition!.y = old?.y ?? sy;
+    item.position.x = sx; item.position.y = sy;
+    item.x = sx; item.y = sy;
+    item.vx = entity.vx; item.vy = entity.vy;
+    item.angle = stateAngle; item.kind = entity.kind;
+    item.radius = entity.radius * Math.min(scaleX, scaleY);
+    item.velocity.x = entity.vx * scaleX; item.velocity.y = entity.vy * scaleY;
+    item.homing = entity.homing; item.invulnerable = entity.invulnerable;
+    item.thrusting = entity.kind === 'ship' && entity.id === playerId && (input?.read().thrust ?? false);
+    view.entities.set(entity.id, item); visibleIds.add(entity.id);
+    if (old) { old.x = sx; old.y = sy; } else lastFramePositions.set(entity.id, { x: sx, y: sy });
   }
   for (const bullet of fakeBullets) {
     const x = bullet.x * scaleX, y = bullet.y * scaleY;
-    view.entities.set(bullet.id, { ...bullet, x, y, radius: bullet.radius * Math.min(scaleX, scaleY), position: { x, y }, previousPosition: { x, y }, velocity: { x: bullet.vx * scaleX, y: bullet.vy * scaleY } });
+    const item: RenderEntity = view.entities.get(bullet.id) ?? { ...bullet, position: { x, y }, previousPosition: { x, y }, velocity: { x: 0, y: 0 } };
+    item.x = x; item.y = y; item.position.x = x; item.position.y = y;
+    item.previousPosition!.x = x; item.previousPosition!.y = y;
+    item.velocity.x = bullet.vx * scaleX; item.velocity.y = bullet.vy * scaleY;
+    item.radius = bullet.radius * Math.min(scaleX, scaleY);
+    view.entities.set(bullet.id, item); visibleIds.add(bullet.id);
   }
+  for (const id of view.entities.keys()) if (!visibleIds.has(id)) { view.entities.delete(id); lastFramePositions.delete(id); }
+  frameProfiler.beginRender();
   renderer.draw(view, 1);
+  frameProfiler.endRender();
 }
 function onStats(stats: LoopStats): void {
   $('#fps').textContent = String(Math.round(stats.fps));
@@ -282,4 +313,27 @@ $('#reset').addEventListener('click', reset);
 $('#leave-room').addEventListener('click', () => {
   loop?.stop(); input?.destroy(); window.removeEventListener('resize', onResize);
   chat.leave(); playerId = null; lobby?.hide(); showLobby();
+});
+
+$('#profile-30').addEventListener('click', () => {
+  if (frameProfiler.recording) return;
+  frameProfiler.start();
+  $('#profile-status').textContent = 'Запис 30 с…';
+  setTimeout(async () => {
+    const data = frameProfiler.stop();
+    data.p99 = await computeFrameP99(frameProfiler.samples());
+    $('#profile-status').textContent = `p99 ${data.p99.toFixed(1)} мс`;
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    link.download = `frame-profile-${Date.now()}.json`; link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    console.table(data);
+  }, 30000);
+});
+
+Object.assign(window, { __arenaDebug: () => frames.at(-1) });
+$('#worker-test').addEventListener('click', async () => {
+  const result = await compareWorker();
+  $('#worker-status').textContent = `main ${result.mainMs.toFixed(1)} / worker ${result.workerMs.toFixed(1)} мс; ${result.keepWorker ? 'worker швидший' : 'залишено main'}`;
+  console.table(result);
 });
