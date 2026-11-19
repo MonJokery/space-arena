@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/MonJokery/space-arena/actions/workflows/ci.yml/badge.svg)](https://github.com/MonJokery/space-arena/actions)
 
-**WebSocket:** тільки `wss://` на публічному HTTPS.
+(https://space-arena-z2v1.onrender.com)
 
 
 ## Запуск
@@ -53,5 +53,5 @@ docker run --rm -p 3000:3000 -e ALLOWED_ORIGINS=http://localhost:3000 --name spa
 **Відео 3–5 хв:** _вставити посилання після запису_.
 
 | Перевірка з різних мереж | RTT |
-| Гравець 1 | — мс |
-| Гравець 2 | — мс |
+| Гравець 1 | 2 мс |
+| Гравець 2 | 25 мс |

@@ -112,6 +112,10 @@ let accumulator = 0;
 let lastSnapshotTime = 0;
 let lastTick = 0;
 let frames: Snapshot[] = [];
+Object.defineProperty(window, '__arenaDebug', {
+  value: () => frames.at(-1),
+  configurable: true
+});
 type FakeBullet = Omit<RenderEntity, 'position' | 'velocity'> & { created: number };
 let fakeBullets: FakeBullet[] = [];
 const fakeBulletPool: FakeBullet[] = [];
